@@ -1,3 +1,4 @@
 beautifulsoup4
 streamlit-aggrid
 pydrive
+psycopg2
