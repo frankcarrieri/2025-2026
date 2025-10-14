@@ -161,11 +161,13 @@ def aggiorna_db_partite(conn, partite):
 
             if data_ora_dt < now and gol_casa is not None:
                 aggiornate += 1
+                data_ora_sql = data_ora_dt.strftime("%Y-%m-%d %H:%M:%S")
+
                 cursor.execute("""
                     UPDATE partite_2025_26
                     SET data_ora = %s, casa_gol = %s, trasferta_gol = %s
-                    WHERE id = %s""", (p['data_ora'], gol_casa, gol_trasferta, partita_id))
-                # Altre logiche di aggiornamento sono da mantenere se necessarie
+                    WHERE id = %s""", (data_ora_sql, gol_casa, gol_trasferta, partita_id))
+                
         else:
             st.warning(f"Partita non trovata per giornata {p['giornata']} casa {p['squadra_casa']} trasferta {p['squadra_trasferta']}")
 
