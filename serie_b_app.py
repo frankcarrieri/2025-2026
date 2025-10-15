@@ -52,12 +52,23 @@ def update_query(query, params=()):
         conn.close()
 
 def highlight_vincita(row):
+    # Query per ottenere le squadre evidenziate
+    highlight_teams_query = """
+        SELECT s.nome_squadra FROM top_draw_teams t
+        JOIN squadre_2025_26 s ON s.id = t.squadra_id
+        WHERE id_draw is not NULL;"""
+    highlight_teams_result = select_query(highlight_teams_query)
+    
+    highlight_teams = {squadra['nome_squadra'] for squadra in highlight_teams_result}
+
     color = ''
     if 'vincita' in row and row['vincita'] not in ("", "0.00"):
         color = 'background-color: darkgreen; color: white'
-    elif 'id_draw' in row and row['id_draw'] is not None and str(row['id_draw']) not in ("", "0.00"):
+    elif ('squadra_casa' in row and 'squadra_trasferta' in row and
+          (row['squadra_casa'] in highlight_teams or row['squadra_trasferta'] in highlight_teams)):
         color = 'background-color: darkgreen; color: white'
     return [color] * len(row)
+
 
 def normalize_str(s):
     if s is None:
@@ -167,6 +178,14 @@ def aggiorna_db_partite(conn, partite):
                     UPDATE partite_2025_26
                     SET data_ora = %s, casa_gol = %s, trasferta_gol = %s
                     WHERE id = %s""", (data_ora_sql, gol_casa, gol_trasferta, partita_id))
+            else:
+                aggiornate += 1
+                data_ora_sql = data_ora_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                cursor.execute("""
+                    UPDATE partite_2025_26
+                    SET data_ora = %s
+                    WHERE id = %s""", (data_ora_sql, partita_id))
                 
         else:
             st.warning(f"Partita non trovata per giornata {p['giornata']} casa {p['squadra_casa']} trasferta {p['squadra_trasferta']}")
@@ -187,7 +206,6 @@ def aggiorna_database(giornata):
         with get_db_connection() as conn:
             aggiorna_db_partite(conn, partite)
             aggiorna_top_six(giornata)
-            aggiorna_bet_top_team()
         st.success("Database aggiornato correttamente.")
         st.session_state.pop('partite', None)
         st.session_state.pop('giornata_caricata', None)
@@ -207,9 +225,11 @@ def caricamento_dati(giornata):
 
     df_visual = pd.DataFrame(partite)
     st.write(f"Dati estratti dalla giornata {giornata}:")
-    st.dataframe(df_visual, use_container_width=True)
+    st.dataframe(df_visual, width='stretch')
 
     st.button("Conferma e Aggiorna Database", on_click=aggiorna_database, args=(giornata,))
+    st.button("Aggiorna Calcolo Partite Successive", on_click=aggiorna_bet_top_team)
+
 
 def aggiorna_bet_top_team():
     # Implementazione adattata a PostgreSQL usando select_query, update_query
@@ -222,7 +242,7 @@ def aggiorna_bet_top_team():
         else:
             continue
         
-        while giornata_partenza <= 38:
+        while giornata_partenza <= 10:
             partita_query = f"""
                 SELECT p.id
                 FROM partite_2025_26 p
@@ -380,26 +400,23 @@ if pagina == "Visualizza Dati":
 
     if page == "Partite":
         partite = load_partite()
-        top_six = select_query("""
-            SELECT s.nome_squadra, s.logo_url
-            FROM top_draw_teams t
-            JOIN squadre_2025_26 s ON t.squadra_id = s.id
-        """)
+        top_six = select_query("SELECT s.nome_squadra, s.logo_url FROM squadre_2025_26 s")
         top_six = pd.DataFrame(top_six)
         logo_dict = dict(zip(top_six['nome_squadra'], top_six['logo_url']))
         partite['logo_casa'] = partite['squadra_casa'].map(logo_dict)
         partite['logo_trasferta'] = partite['squadra_trasferta'].map(logo_dict)
 
         partite['Risultato'] = partite.apply(
-            lambda row: f"{int(row['casa_gol'])} - {int(row['trasferta_gol'])}" if pd.notna(row['casa_gol']) and pd.notna(row['trasferta_gol']) else " - ",
+            lambda row: f"{int(row['casa_gol'])} - {int(row['trasferta_gol'])}" 
+            if pd.notna(row['casa_gol']) and pd.notna(row['trasferta_gol']) else " - ",
             axis=1
         )
 
         giornate = ['Tutte'] + sorted(partite['giornata_id'].unique())
         giornata_partenza = max(get_giornata_partenza(), 1)
         giornata = st.selectbox("Seleziona giornata",
-                               giornate,
-                               index=giornate.index(giornata_partenza) if giornata_partenza in giornate else 1)
+                            giornate,
+                            index=giornate.index(giornata_partenza) if giornata_partenza in giornate else 1)
 
         if giornata != 'Tutte':
             partite = partite[partite['giornata_id'] == giornata]
@@ -407,11 +424,12 @@ if pagina == "Visualizza Dati":
         partite = partite.sort_values(by='data_ora', ascending=True)
 
         col_order = ["giornata_id", "data_ora", "logo_casa", "squadra_casa", "Risultato", "squadra_trasferta", "logo_trasferta"]
-        partite_display = partite[col_order]
+        partite_display = partite[col_order]  # include highlight per lo style
 
         st.dataframe(
-            partite_display.style.apply(highlight_vincita, axis=1),
-            use_container_width=True,
+            partite_display.style
+                .apply(highlight_vincita, axis=1),
+            width='stretch',
             column_config={
                 "giornata_id": st.column_config.TextColumn("Giornata"),
                 "data_ora": st.column_config.TextColumn("Data & Ora"),
@@ -443,7 +461,7 @@ if pagina == "Visualizza Dati":
             cols.insert(0, cols.pop(cols.index('nome_squadra')))
             bet = bet[cols]
 
-        st.dataframe(bet.style.apply(highlight_vincita, axis=1), use_container_width=True)
+        st.dataframe(bet.style.apply(highlight_vincita, axis=1), width='stretch')
 
     else:  # Top Draw Teams
         top_draw = load_top_draw()
@@ -461,9 +479,25 @@ if pagina == "Visualizza Dati":
         columns += [c for c in top_draw.columns if c not in columns]
         top_draw = top_draw[columns]
 
+        def highlight_vincita_top(row):
+            # Query per ottenere le squadre evidenziate
+            highlight_teams_query = """
+                SELECT s.nome_squadra FROM top_draw_teams t
+                JOIN squadre_2025_26 s ON s.id = t.squadra_id
+                WHERE id_draw is not NULL;"""
+            highlight_teams_result = select_query(highlight_teams_query)
+            
+            highlight_teams = {squadra['nome_squadra'] for squadra in highlight_teams_result}
+
+            color = ''
+            if 'nome_squadra' in row and row['nome_squadra'] in highlight_teams:
+                color = 'background-color: darkgreen; color: white'
+            return [color] * len(row)
+
+
         st.dataframe(
-            top_draw.style.apply(highlight_vincita, axis=1),
-            use_container_width=True,
+            top_draw.style.apply(highlight_vincita_top, axis=1),
+            width='stretch',
             column_config={
                 "logo_url": st.column_config.ImageColumn("Logo", help="Logo della squadra", width="small"),
                 "nome_squadra": st.column_config.TextColumn("Squadra"),
@@ -540,7 +574,7 @@ elif pagina == "Aggiornamento Dati":
                                     """
                                     update_query(update_sql)
                                     st.success(f"Quota {quota_val} salvata per la partita {row['name_match']}")
-                                    st.experimental_rerun()
+                                    st.rerun()
                             except ValueError:
                                 st.error("Quota deve essere un numero decimale valido.")
         else:

@@ -393,7 +393,7 @@ for ($giornata_partenza; $giornata_partenza <= $giornata_fine; $giornata_partenz
 
 function getPDO() {
     //$db_path = "C:\\Users\\francesco1.carrieri\\OneDrive - Dipartimento\\FRANK\\serie_b.sqlite";
-    $db_path = "C:\\Users\\Francesco Carrieri\\OneDrive - Dipartimento del Tesoro\\FRANK\\serie_b.sqlite";
+    $db_path = "C:\\Users\\Francesco Carrieri\\Documents\\CODING\\FRANK\\serie_b.sqlite";
     try {
         $pdo = new PDO("sqlite:" . $db_path);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
