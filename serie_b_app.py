@@ -414,9 +414,7 @@ if pagina == "Visualizza Dati":
 
         giornate = ['Tutte'] + sorted(partite['giornata_id'].unique())
         giornata_partenza = max(get_giornata_partenza(), 1)
-        giornata = st.selectbox("Seleziona giornata",
-                            giornate,
-                            index=giornate.index(giornata_partenza) if giornata_partenza in giornate else 1)
+        giornata = st.number_input("Seleziona giornata", min_value=1, max_value=38, value=giornate.index(giornata_partenza) if giornata_partenza in giornate else 1)
 
         if giornata != 'Tutte':
             partite = partite[partite['giornata_id'] == giornata]
@@ -445,13 +443,12 @@ if pagina == "Visualizza Dati":
         bet = load_bet()
         giornate = ['Tutte'] + sorted(bet['fk_id_giornata'].dropna().unique().astype(int))
         giornata_partenza = get_giornata_partenza()
-        giornata = st.selectbox("Seleziona giornata", giornate,
-                               index=giornate.index(giornata_partenza) if giornata_partenza in giornate else 1)
+        giornata = st.number_input("Seleziona giornata", min_value=1, max_value=38, value=giornate.index(giornata_partenza) if giornata_partenza in giornate else 1)
 
         if giornata != 'Tutte':
             bet = bet[bet['fk_id_giornata'] == giornata]
         bet = bet.copy()
-        cols_to_remove = ['id', 'fk_id_draw', 'fk_id_giornata', 'fk_id_partita', 'squadra_id']
+        cols_to_remove = ['id', 'fk_id_giornata', 'fk_id_partita', 'squadra_id']
         bet.drop(columns=[col for col in cols_to_remove if col in bet.columns], inplace=True)
         for col in ['quota', 'vincita', 'saldo_squadra_pareggi', 'saldo_totale']:
             if col in bet.columns:
@@ -460,6 +457,7 @@ if pagina == "Visualizza Dati":
         if 'nome_squadra' in cols:
             cols.insert(0, cols.pop(cols.index('nome_squadra')))
             bet = bet[cols]
+        bet = bet.sort_values(by='fk_id_draw', ascending=True)
 
         st.dataframe(bet.style.apply(highlight_vincita, axis=1), width='stretch')
 
