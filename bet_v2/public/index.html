@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Serie B Draw Betting</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── HEADER ─────────────────────────────────────────── -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="app-logo">⚽</span>
+        <div>
+          <h1>Serie B Draw Betting</h1>
+          <span class="app-season">2025-2026</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="saldo-totale" id="saldoTotale">—</div>
+        <button class="btn btn-sync" id="btnSync" title="Aggiorna dati da Sportradar">
+          <span class="sync-icon">↻</span> Sincronizza
+        </button>
+      </div>
+    </header>
+
+    <!-- ── TABS ───────────────────────────────────────────── -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="bet">
+        Bet Giornata
+        <span class="tab-badge" id="tabBadge" style="display:none"></span>
+      </button>
+      <button class="tab" data-tab="storico">Storico P&amp;L</button>
+    </nav>
+
+    <!-- ── SYNC LOG ───────────────────────────────────────── -->
+    <div id="syncLog" class="sync-log" style="display:none"></div>
+
+    <!-- ── PANNELLO: DASHBOARD ────────────────────────────── -->
+    <section id="panelDashboard" class="panel active">
+      <div class="section-header">
+        <h2>Slot Correnti</h2>
+        <div class="giornata-info">
+          Prossima giornata: <strong id="prossimaGiornata">—</strong>
+        </div>
+      </div>
+      <div class="slots-grid" id="slotsGrid">
+        <!-- Card slot generate da JS -->
+        <div class="loading-state">Caricamento slot...</div>
+      </div>
+    </section>
+
+    <!-- ── PANNELLO: BET ──────────────────────────────────── -->
+    <section id="panelBet" class="panel">
+      <div class="section-header">
+        <h2>Inserisci Bet — Giornata <span id="betGiornataNum">—</span></h2>
+      </div>
+      <div id="betContent">
+        <div class="loading-state">Caricamento partite...</div>
+      </div>
+    </section>
+
+    <!-- ── PANNELLO: STORICO ──────────────────────────────── -->
+    <section id="panelStorico" class="panel">
+      <div class="section-header">
+        <h2>Storico P&amp;L</h2>
+      </div>
+      <div class="chart-container">
+        <canvas id="plChart"></canvas>
+        <div class="loading-state" id="chartLoading">Caricamento dati...</div>
+      </div>
+      <div id="storicoTable"></div>
+    </section>
+
+  </div><!-- /#app -->
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
