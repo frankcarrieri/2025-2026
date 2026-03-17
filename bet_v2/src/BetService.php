@@ -58,6 +58,14 @@ class BetService
                     SET id_partita = ?, posta = ?
                     WHERE id_giornata = ? AND id_slot = ? AND giocata = 0 AND esito IS NULL
                 ", [$idPartita, $posta, $giornata, $idSlot]);
+
+                // Fix id_partita se NULL (bet creata prima che sync importasse le partite)
+                if ($idPartita !== null) {
+                    Database::execute("
+                        UPDATE bet SET id_partita = ?
+                        WHERE id_giornata = ? AND id_slot = ? AND id_partita IS NULL
+                    ", [$idPartita, $giornata, $idSlot]);
+                }
             }
             Database::commit();
         } catch (Throwable $e) {
@@ -162,20 +170,39 @@ class BetService
                     continue;
                 }
 
-                // Verifica se la partita è finita in pareggio
-                $pareggio = false;
+                // Verifica lo stato della partita
+                $pareggio  = false;
+                $rinviata  = false;
                 if ($idPartita !== null) {
                     $partita = Database::query("
                         SELECT gol_casa, gol_trasferta, stato FROM partite
                         WHERE id_partita = ?
                     ", [$idPartita]);
 
-                    if (!empty($partita)
-                        && $partita[0]['stato'] === 'finished'
-                        && $partita[0]['gol_casa'] !== null
-                    ) {
-                        $pareggio = ((int)$partita[0]['gol_casa'] === (int)$partita[0]['gol_trasferta']);
+                    if (!empty($partita)) {
+                        $statoPartita = $partita[0]['stato'];
+                        if ($statoPartita === 'postponed') {
+                            // Partita rinviata: la bet viene annullata come SKIP
+                            // (nessuna perdita, martingala si azzera)
+                            $rinviata = true;
+                        } elseif ($statoPartita === 'finished' && $partita[0]['gol_casa'] !== null) {
+                            $pareggio = ((int)$partita[0]['gol_casa'] === (int)$partita[0]['gol_trasferta']);
+                        }
                     }
+                }
+
+                if ($rinviata) {
+                    Database::execute("
+                        UPDATE bet SET esito = 'SKIP', vincita = 0, saldo_variazione = 0
+                        WHERE id_giornata = ? AND id_slot = ?
+                    ", [$giornata, $idSlot]);
+
+                    Database::execute("
+                        UPDATE slot SET step = 0, posta_corrente = ?
+                        WHERE id_slot = ?
+                    ", [POSTA_BASE, $idSlot]);
+
+                    continue;
                 }
 
                 if ($pareggio && $quotaX !== null) {

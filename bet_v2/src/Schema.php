@@ -108,8 +108,44 @@ class Schema
         // Migrazione: aggiungi logo_url a squadre (idempotente)
         try {
             $pdo->exec("ALTER TABLE squadre ADD COLUMN logo_url TEXT");
-        } catch (Throwable $e) {
-            // Colonna già esistente — ignora
+        } catch (Throwable $e) { /* già esistente */ }
+
+        // Migrazione: aggiungi minuto a partite (idempotente)
+        try {
+            $pdo->exec("ALTER TABLE partite ADD COLUMN minuto INTEGER");
+        } catch (Throwable $e) { /* già esistente */ }
+
+        // Migrazione: aggiorna CHECK constraint di partite.stato per includere 'postponed'
+        // SQLite non supporta ALTER COLUMN: si ricrea la tabella se il constraint è ancora quello vecchio
+        $checkInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='partite'")->fetchColumn();
+        if ($checkInfo && strpos($checkInfo, "'postponed'") === false) {
+            $pdo->exec("PRAGMA foreign_keys = OFF");
+            $pdo->exec("
+                BEGIN;
+                CREATE TABLE partite_v2 (
+                    id_partita    TEXT    PRIMARY KEY,
+                    id_giornata   INTEGER NOT NULL REFERENCES giornate(id),
+                    id_casa       INTEGER NOT NULL REFERENCES squadre(id),
+                    id_trasferta  INTEGER NOT NULL REFERENCES squadre(id),
+                    data_ora      TEXT,
+                    gol_casa      INTEGER,
+                    gol_trasferta INTEGER,
+                    stato         TEXT NOT NULL DEFAULT 'scheduled'
+                                  CHECK(stato IN ('scheduled','live','finished','postponed')),
+                    minuto        INTEGER,
+                    UNIQUE(id_giornata, id_casa, id_trasferta)
+                );
+                INSERT INTO partite_v2
+                    SELECT id_partita, id_giornata, id_casa, id_trasferta,
+                           data_ora, gol_casa, gol_trasferta, stato,
+                           NULL
+                    FROM partite;
+                DROP TABLE partite;
+                ALTER TABLE partite_v2 RENAME TO partite;
+                CREATE INDEX IF NOT EXISTS idx_partite_giornata ON partite(id_giornata);
+                COMMIT;
+            ");
+            $pdo->exec("PRAGMA foreign_keys = ON");
         }
 
         // Inizializza i 6 slot se non esistono ancora

@@ -46,30 +46,34 @@ class Importer
                 // Il secondo UNIQUE(id_giornata, id_casa, id_trasferta) viene gestito con
                 // INSERT OR IGNORE + UPDATE separato, evitando errori su match duplicati
                 // (es. partite rinviate/rigiocate con nuovo ID nel feed Sportradar).
+                $minuto = $m['minuto'] ?? null;
+
                 Database::execute("
-                    INSERT OR IGNORE INTO partite(id_partita, id_giornata, id_casa, id_trasferta, data_ora, gol_casa, gol_trasferta, stato)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR IGNORE INTO partite(id_partita, id_giornata, id_casa, id_trasferta, data_ora, gol_casa, gol_trasferta, stato, minuto)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ", [
                     $m['id'], $giornata, $casaId, $trasId,
-                    $m['data_ora'], $m['gol_casa'], $m['gol_trasferta'], $m['stato'],
+                    $m['data_ora'], $m['gol_casa'], $m['gol_trasferta'], $m['stato'], $minuto,
                 ]);
 
-                // Aggiorna gol/stato sull'eventuale riga già presente (sia per PK che per UNIQUE secondario)
+                // Aggiorna gol/stato/minuto sull'eventuale riga già presente
+                // Non sovrascrive mai uno stato 'finished' o 'postponed' già acquisito
                 Database::execute("
                     UPDATE partite
-                    SET gol_casa = ?, gol_trasferta = ?, data_ora = ?, stato = ?
+                    SET gol_casa = ?, gol_trasferta = ?, data_ora = ?, stato = ?, minuto = ?
                     WHERE (id_partita = ? OR (id_giornata = ? AND id_casa = ? AND id_trasferta = ?))
-                      AND stato != 'finished'
+                      AND stato NOT IN ('finished', 'postponed')
                 ", [
-                    $m['gol_casa'], $m['gol_trasferta'], $m['data_ora'], $m['stato'],
+                    $m['gol_casa'], $m['gol_trasferta'], $m['data_ora'], $m['stato'], $minuto,
                     $m['id'], $giornata, $casaId, $trasId,
                 ]);
             }
 
-            // Aggiorna stato giornata: 'completata' solo se TUTTE le partite sono 'finished'
-            $totale    = (int)Database::scalar("SELECT COUNT(*) FROM partite WHERE id_giornata = ?", [$giornata]);
-            $finite    = (int)Database::scalar("SELECT COUNT(*) FROM partite WHERE id_giornata = ? AND stato = 'finished'", [$giornata]);
-            $nuovoStato = ($totale > 0 && $totale === $finite) ? 'completata' : 'pending';
+            // Aggiorna stato giornata: 'completata' se tutte le partite sono 'finished' o 'postponed'
+            // Una partita rinviata non blocca l'elaborazione della giornata
+            $totale   = (int)Database::scalar("SELECT COUNT(*) FROM partite WHERE id_giornata = ?", [$giornata]);
+            $risolte  = (int)Database::scalar("SELECT COUNT(*) FROM partite WHERE id_giornata = ? AND stato IN ('finished', 'postponed')", [$giornata]);
+            $nuovoStato = ($totale > 0 && $totale === $risolte) ? 'completata' : 'pending';
 
             Database::execute(
                 "UPDATE giornate SET stato = ?, importata_alle = datetime('now') WHERE id = ?",

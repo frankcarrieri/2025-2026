@@ -33,6 +33,8 @@
         Bet Giornata
         <span class="tab-badge" id="tabBadge" style="display:none"></span>
       </button>
+      <button class="tab" data-tab="partite">Partite</button>
+      <button class="tab" data-tab="classifica">Classifica</button>
       <button class="tab" data-tab="storico">Storico P&amp;L</button>
     </nav>
 
@@ -56,10 +58,47 @@
     <!-- ── PANNELLO: BET ──────────────────────────────────── -->
     <section id="panelBet" class="panel">
       <div class="section-header">
-        <h2>Inserisci Bet — Giornata <span id="betGiornataNum">—</span></h2>
+        <div class="bet-header-row">
+          <h2>Inserisci Bet — Giornata <span id="betGiornataNum">—</span></h2>
+          <div class="giornata-nav">
+            <button class="btn-nav" id="btnGiornataPrev" title="Giornata precedente" disabled>‹</button>
+            <input type="number" id="inputGiornata" class="giornata-input" min="1" max="38" value="1" title="Salta alla giornata">
+            <button class="btn-nav" id="btnGiornataNext" title="Giornata successiva" disabled>›</button>
+          </div>
+        </div>
       </div>
       <div id="betContent">
         <div class="loading-state">Caricamento partite...</div>
+      </div>
+    </section>
+
+    <!-- ── PANNELLO: PARTITE ─────────────────────────────── -->
+    <section id="panelPartite" class="panel">
+      <div class="section-header">
+        <div class="bet-header-row">
+          <h2>Partite — Giornata <span id="partiteGiornataNum">—</span></h2>
+          <div class="giornata-nav">
+            <button class="btn-nav" id="btnPartitePrev" title="Giornata precedente" disabled>‹</button>
+            <input type="number" id="inputPartiteGiornata" class="giornata-input" min="1" max="38" value="1" title="Salta alla giornata">
+            <button class="btn-nav" id="btnPartiteNext" title="Giornata successiva" disabled>›</button>
+          </div>
+        </div>
+      </div>
+      <div id="partiteContent">
+        <div class="loading-state">Caricamento partite...</div>
+      </div>
+    </section>
+
+    <!-- ── PANNELLO: CLASSIFICA ──────────────────────────── -->
+    <section id="panelClassifica" class="panel">
+      <div class="section-header">
+        <h2>Classifica Pareggi</h2>
+        <span class="partite-legend" style="margin-left:auto">
+          <span class="slot-dot"></span> Squadra monitorata in uno slot
+        </span>
+      </div>
+      <div id="classificaContent">
+        <div class="loading-state">Caricamento...</div>
       </div>
     </section>
 
@@ -67,6 +106,9 @@
     <section id="panelStorico" class="panel">
       <div class="section-header">
         <h2>Storico P&amp;L</h2>
+        <button class="btn btn-rielabora" id="btnRielabora" title="Ricalcola esiti e martingala dal giornata 1">
+          ↺ Rielabora Storico
+        </button>
       </div>
       <div class="chart-container">
         <canvas id="plChart"></canvas>

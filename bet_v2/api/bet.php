@@ -24,13 +24,12 @@ if ($idSlot < 1 || $idSlot > NUM_SLOT) {
     json_err("Slot non valido: $idSlot");
 }
 
-if ($giocata) {
-    if ($quotaX === null || $quotaX <= 1.0) {
-        json_err("quota_x deve essere > 1.0 quando giocata=true");
-    }
-    BetService::registraBet($giornata, $idSlot, true, $quotaX);
-} else {
-    BetService::registraBetSkip($giornata, $idSlot);
+if ($giocata && ($quotaX === null || $quotaX <= 1.0)) {
+    json_err("quota_x deve essere > 1.0 quando giocata=true");
 }
+
+// Salva solo la preferenza (giocata + quota_x).
+// L'esito (WIN/LOSS/SKIP) viene impostato da calcolaEsiti dopo le partite.
+BetService::registraBet($giornata, $idSlot, $giocata, $giocata ? $quotaX : null);
 
 json_ok(['ok' => true, 'giornata' => $giornata, 'id_slot' => $idSlot]);

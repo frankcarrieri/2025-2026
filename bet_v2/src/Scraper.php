@@ -21,6 +21,7 @@ class Scraper
      *   stato: string
      * }>>
      * Chiavi = numero giornata (1..38), ordinate ascending.
+     * Ogni partita include anche 'minuto' (int|null) per le partite live.
      */
     public static function fetchAll(): array
     {
@@ -67,25 +68,50 @@ class Scraper
                 $dataOra = $m['time']['date'] . ' ' . $m['time']['time'];
             }
 
-            // Stato: determinato dall'esistenza di result (status è null nel JSON)
+            // Stato: controlla live, result, postponed
             $hasResult = !empty($m['result'])
                 && isset($m['result']['home'], $m['result']['away']);
             $postponed = !empty($m['postponed']);
 
-            if ($hasResult) {
+            // Stato live: Sportradar può esporre il campo in vari path
+            $statusRaw = $m['status']
+                ?? $m['matchstatus']
+                ?? $m['time']['status']
+                ?? $m['time']['gametime']
+                ?? '';
+            $liveStatus = self::normalizeStatus((string)$statusRaw);
+
+            if ($liveStatus === 'live') {
+                $stato = 'live';
+            } elseif ($hasResult) {
                 $stato = 'finished';
             } elseif ($postponed) {
-                $stato = 'scheduled'; // rinviata, non giocata
+                $stato = 'postponed';
             } else {
                 $stato = 'scheduled';
             }
 
-            // Gol: presenti solo nelle partite finite
+            // Gol: presenti su partite finite e anche live (score parziale)
             $golCasa = null;
             $golTras = null;
-            if ($hasResult) {
-                $golCasa = is_numeric($m['result']['home']) ? (int)$m['result']['home'] : null;
-                $golTras = is_numeric($m['result']['away']) ? (int)$m['result']['away'] : null;
+            if ($hasResult || $stato === 'live') {
+                $golCasa = isset($m['result']['home']) && is_numeric($m['result']['home'])
+                    ? (int)$m['result']['home'] : null;
+                $golTras = isset($m['result']['away']) && is_numeric($m['result']['away'])
+                    ? (int)$m['result']['away'] : null;
+            }
+
+            // Minuto di gioco (solo live)
+            $minuto = null;
+            if ($stato === 'live') {
+                $minuto = $m['time']['minute']
+                    ?? $m['time']['min']
+                    ?? $m['time']['played']
+                    ?? $m['minute']
+                    ?? null;
+                if ($minuto !== null) {
+                    $minuto = (int)$minuto;
+                }
             }
 
             $result[$round][] = [
@@ -97,6 +123,7 @@ class Scraper
                 'gol_casa'      => $golCasa,
                 'gol_trasferta' => $golTras,
                 'stato'         => $stato,
+                'minuto'        => $minuto,
             ];
         }
 
